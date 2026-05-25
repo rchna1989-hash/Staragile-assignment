@@ -1,6 +1,7 @@
 pipeline {
     agent any
-	tools {
+
+    tools {
         maven 'Maven3'
     }
 
@@ -19,35 +20,37 @@ pipeline {
 
         stage('Build Application') {
             steps {
-                sh 'mvn clean package'
+                bat 'mvn clean package'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
+                bat 'docker build -t %IMAGE_NAME% .'
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Remove Old Container') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-
-                    sh 'docker push $IMAGE_NAME:$IMAGE_TAG'
-                }
+                bat 'docker stop %CONTAINER_NAME% || exit 0'
+                bat 'docker rm %CONTAINER_NAME% || exit 0'
             }
         }
 
         stage('Run Container') {
             steps {
-                sh 'docker run -d -p 8080:8080 --name myapp-container $IMAGE_NAME:$IMAGE_TAG'
+                bat 'docker run -d -p 8080:8080 --name %CONTAINER_NAME% %IMAGE_NAME%'
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline Executed Successfully'
+        }
+
+        failure {
+            echo 'Pipeline Failed'
         }
     }
 }
