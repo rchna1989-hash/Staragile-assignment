@@ -1,47 +1,53 @@
 pipeline {
-
     agent any
-
-    tools {
+	tools {
         maven 'Maven3'
+    }
+
+    environment {
+        IMAGE_NAME = 'staragile-app'
+        CONTAINER_NAME = 'staragile-container'
     }
 
     stages {
 
-        stage('Clone Repository') {
-
+        stage('Checkout Code') {
             steps {
-
-                git branch: 'master',
-                url: 'https://github.com/rchna1989-hash/Staragile-assignment.git'
-
+                git 'https://github.com/rchna1989-hash/Staragile-assignment.git'
             }
         }
 
-        stage('Build Maven Project') {
-
+        stage('Build Application') {
             steps {
-
                 sh 'mvn clean package'
-
             }
         }
 
-    }
-
-    post {
-
-        success {
-
-            echo 'Build Successful'
-
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
+            }
         }
 
-        failure {
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
 
-            echo 'Build Failed'
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
 
+                    sh 'docker push $IMAGE_NAME:$IMAGE_TAG'
+                }
+            }
         }
 
+        stage('Run Container') {
+            steps {
+                sh 'docker run -d -p 8080:8080 --name myapp-container $IMAGE_NAME:$IMAGE_TAG'
+            }
+        }
     }
 }
